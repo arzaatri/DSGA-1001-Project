@@ -12,22 +12,36 @@ def surgery_preprocess(split=True): # If split=True, return the split; else, ret
     spirometry = pd.read_sas('SPX_G.XPT')
     demographics = pd.read_sas('DEMO_G.XPT')
     body = pd.read_sas('BMX_G.XPT')
+    enx = pd.read_sas('ENX_G.XPT')
+    bpx = pd.read_sas('BPX_G.XPT')
 
     
     # Subset the datasets
-    subset = spirometry[['SPXNFVC', 'SPXNFEV1', 'SEQN']]
-    demo_sub = demographics[['RIDAGEYR', 'RIAGENDR', 'SEQN']]
-    body_sub = body[['BMXHT', 'BMXWT', 'SEQN']]
+    subset = spirometry[['SPXNFVC', 'SPXNFEV1', 'SEQN', 
+                             'ENQ010', 'ENQ020', 'SPQ040', 'ENQ100', 
+                             'SPQ050', 'SPQ060','SPQ070B', 'SPQ100']]
+    demographics = demographics[['RIDAGEYR', 'RIAGENDR', 'SEQN']]
+    body = body[['BMXHT', 'BMXWT', 'SEQN']]
+    enx = enx[['ENQ040','ENQ090','ENXTR4Q','SEQN']]
+    bpx = bpx[['BPQ150D','SEQN']]
     
     # Merge the datasets by SEQN
-    subset = pd.merge(subset, demo_sub, 'left', 'SEQN')
-    subset = pd.merge(subset, body_sub, 'left', 'SEQN')
-    
-    # Rename variables. 1 is male, 2 is female for sex
+    subset = pd.merge(subset, demographics, 'left', 'SEQN')
+    subset = pd.merge(subset, body, 'left', 'SEQN')
+    subset = pd.merge(subset, enx, 'left', 'SEQN')
+    subset = pd.merge(subset, bpx, 'left', 'SEQN')
     subset.rename(columns = {'SPXNFVC': 'FVC', 'SPXNFEV1': 'FEV1',
                             'RIDAGEYR': 'Age', 'RIAGENDR': 'Sex', 
                             'BMXHT': 'Height', 'BMXWT': 'Weight'}, inplace=True)
-    subset = subset.dropna()
+    
+    # entries prior to filtering: 7495
+    subset = subset[(subset['ENQ010'] !=1) & (subset['ENQ020']!=1) &
+                    (subset['SPQ040']!=1) & (subset['SPQ050']!=1) & (subset['SPQ060']!=1) &
+                    (subset['SPQ070B']!=2) & ( subset['SPQ100']!=1) & (subset['ENQ100']!=1) &
+                    (subset['ENQ040']!=1) & (subset['ENQ090']!=1)]
+    
+    subset.dropna(axis=0, subset=['FVC','Age','FVC'])
+    # 4950 entries
     
     # Get mean FVC and FEV1 per age
     estimates = subset.groupby('Age')[['FVC', 'FEV1']].mean()
