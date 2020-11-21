@@ -1,7 +1,6 @@
 def surgery_preprocess(split=True): # If split=True, return the split; else, return all data
     import pandas as pd
     import numpy as np
-    import seaborn as sns
     from sklearn.preprocessing import StandardScaler
     from sklearn.model_selection import train_test_split
     from sklearn.linear_model import LinearRegression
@@ -93,12 +92,9 @@ def surgery_preprocess(split=True): # If split=True, return the split; else, ret
     surgery['expected_FVC'] = estimates.loc[surgery.Age, 'mean_FVC'].values / 1000
     surgery['expected_FEV1'] = estimates.loc[surgery.Age, 'mean_FEV1'].values / 1000
     surgery['expected_FEV1/FVC'] = surgery['expected_FEV1'] / surgery['expected_FVC']
-    surgery['FEV1_deficit'] = surgery['expected_FEV1']-surgery['FEV1']
-    surgery['Relative_FEV1_deficit'] = surgery['FEV1_deficit'] / surgery['expected_FEV1']
-    surgery['FVC_deficit'] = surgery['expected_FVC']-surgery['FVC']
-    surgery['Relative_FVC_deficit'] = surgery['FVC_deficit'] / surgery['expected_FVC']
-    surgery['FEV1/FVC_deficit'] = surgery['expected_FEV1/FVC']-surgery['FEV1/FVC']
-    surgery['Relative_FEV1/FVC_deficit'] = surgery['FEV1/FVC_deficit'] / surgery['expected_FEV1/FVC']
+    surgery['FEV1_deficit'] = (surgery['expected_FEV1']-surgery['FEV1'])/surgery['expected_FEV1']
+    surgery['FVC_deficit'] = (surgery['expected_FVC']-surgery['FVC'])/surgery['expected_FVC']
+    surgery['FEV1/FVC_deficit'] = (surgery['expected_FEV1/FVC']-surgery['FEV1/FVC'])/surgery['expected_FEV1/FVC']
     surgery['FEV1^2'] = surgery['FEV1']**2
     surgery['FVC^2'] = surgery['FVC']**2
     surgery['Age*FVC'] = surgery['Age']*surgery['FVC']
@@ -118,12 +114,15 @@ def surgery_preprocess(split=True): # If split=True, return the split; else, ret
     surgery.loc[:,surgery.dtypes=='object']= surgery.loc[:,surgery.dtypes=='object'].apply(lambda s: (s.str.replace("\'", "").str.replace('b', '')))
     surgery.replace(to_replace = ['F', 'T'], value=[0,1], inplace=True)
 
+    # Ordinal encoding
     ord_cols = ['Performance', 'Tumor_size']
     for col in ord_cols:
         surgery[col] = surgery[col].str.strip().str[-1].astype(int)
         
     # Remove diagnoses with too little data (n=1,4,2)
     surgery = surgery[~(surgery.DGN.isin(['DGN1', 'DGN6', 'DGN8']))]
+    # Drop categorical feature with too few 1's for the algorithm to learn anything reliable
+    surgery.drop(columns=['PAD', 'Asthma', 'MI_6months'], inplace=True)
     # Turn our categorical DGN feature to boolean _DGNx features
     surgery = pd.get_dummies(surgery, prefix=[''], columns=['DGN'])
     
