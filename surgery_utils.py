@@ -1,5 +1,5 @@
 from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, cross_val_score, StratifiedKFold
 from sklearn.linear_model import LinearRegression
 from sklearn import metrics
 from imblearn.pipeline import Pipeline
@@ -162,7 +162,11 @@ def split(surgery, drop_cols=[], idx=[]):
     num_col = numeric_cols.copy()
     if len(d) > 0:
         for el in d:
-            num_col.remove(el)
+            if el not in num_col:
+                continue
+            else:
+                num_col.remove(el)
+    d.append('Risk1Yr')
     d.append('Risk1Yr')
     
     if len(idx)==0:
@@ -186,21 +190,23 @@ def split(surgery, drop_cols=[], idx=[]):
     ### Return the split train/test data ###
     return X_train, X_test, y_train, y_test
 
-def get_scores(pipe, train_X, test_X, train_y, test_y, scores, n=7):
+def get_scores(pipe, train_X, test_X, train_y, test_y, scores):
     model_scores = {}
-    for s in scores:
-        model_scores[s] = 0
+                
     pipe.fit(train_X, train_y)
-
-    for i in range(n):
-        preds = pipe.predict(test_X)
-        proba = pipe.predict_proba(test_X)[:,1]
-        for s in scores:
-            if s in ['roc_auc_score', 'average_precition_score']:
-                model_scores[s] += eval('metrics.'+s+'(test_y, proba)')/n
-            else:
-                model_scores[s] += eval('metrics.'+s+'(test_y, preds)')/n
     
+    preds_train = pipe.predict(train_X)
+    proba_train = pipe.predict_proba(train_X)[:,1]
+    preds_test = pipe.predict(test_X)
+    proba_test = pipe.predict_proba(test_X)[:,1]
+    for s in scores:
+        if s in ['roc_auc_score', 'average_precision_score']:
+            model_scores['train_'+s] = eval('metrics.'+s+'(train_y, proba_train)')
+            model_scores['test_'+s] = eval('metrics.'+s+'(test_y, proba_test)')
+        else:
+            model_scores['train_'+s] = eval('metrics.'+s+'(train_y, preds_train)')
+            model_scores['test_'+s] = eval('metrics.'+s+'(test_y, preds_test)')
+                    
     return model_scores
 
 
